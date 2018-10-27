@@ -1,0 +1,801 @@
+#!/opt/drop-pyenv/bin/python
+# -*- coding: utf-8 -*-
+
+import cmd
+import getpass
+import shlex
+import argparse
+import requests
+import json
+import time
+
+HOST = "127.0.0.1"
+PORT = 8082
+
+_API_URL = "http://{}:{}".format(HOST, PORT)
+
+
+class Cli(cmd.Cmd):
+
+    def __init__(self):
+        cmd.Cmd.__init__(self)
+        self.prompt = "drop-core:{}:nologin> ".format(HOST)
+        self.intro = "DROP CLI 'help'"
+        self.token = ""
+        self._nodes = []
+        self.intro = """Avaliable commands (type 'help _cmd_')
+            =================
+            start with arg to connect another host (default localhost)
+
+            ex. drop-cli <HOST>
+            =================
+
+            login - login in system
+
+            freenode_list  - list of free nodes
+            freenode_clear - remove all free nodes (refresh list)
+
+            cluster_list - list of avaliable clusters
+            cluster_create - create new cluster
+            cluster_destroy - destroy existing cluster
+            cluster_start - start all cluster nodes
+            cluster_stop - stop all cluster nodes
+            cluster_node - add/rm/start/stop node in cluster
+            cluster_info - info of cluster
+            cluster_version - version nodes of cluster
+
+            service_list - list of systemd services
+            service_start - start systemd services
+            service_stop - stop of systemd services
+            service_status - status of systemd services
+            service_conf - configurate systemd services
+
+            plugin_repo - find avaliable plugin in repo
+            plugin_install - install plugin
+            plugin_remove - remove plugin
+            plugin_list - list of plugin
+            plugin_start - start plugin
+            plugin_stop - stop plugin
+            plugin_info - info of plugin
+            plugin_call - call msg to plugin
+
+            stats_cluster - system stats of cluster nodes
+            stats_plugin - system stats of groups on nodes
+
+        """
+
+        self.login_p = argparse.ArgumentParser()
+        self.login_p.add_argument('name', help='User name')
+
+        self.cluster_c = argparse.ArgumentParser()
+        self.cluster_c.add_argument('name', help='Cluster name')
+        self.cluster_c.add_argument('--node-ids', default=False, nargs='*',
+                                    help='Uid of nodes', required=True)
+        self.cluster_c.add_argument('--vip', default=False, help='Virtual IP',
+                                    required=True)
+
+        self.cluster_d = argparse.ArgumentParser()
+        self.cluster_d.add_argument('name', help='Cluster name')
+        self.cluster_d.add_argument('--fmt', help='Format output. ex --fmt col1,col2,..')
+
+        self.free_d = argparse.ArgumentParser()
+        self.free_d.add_argument('--fmt', help='Format output. ex --fmt col1,col2,..')
+
+        self.cluster_n = argparse.ArgumentParser()
+        self.cluster_n.add_argument('name', help='Cluster name')
+        self.cluster_n.add_argument('--node-names', default=False, nargs='*',
+                                    help='Names of nodes', required=True)
+        self.cluster_n.add_argument('--op', default=False,
+                                    choices=['add', 'rm', 'start', 'stop'],
+                                    help='Node operation', required=True)
+
+        self.service_p = argparse.ArgumentParser()
+        self.service_p.add_argument('name', help='Cluster name')
+        self.service_p.add_argument('--id', help='Name of service/plugin')
+
+        self.service_cnf = argparse.ArgumentParser()
+        self.service_cnf.add_argument('name', help='Cluster name')
+        self.service_cnf.add_argument('--id', help='Name of service/plugin')
+        self.service_cnf.add_argument('--code', help='Service shed code 0/1/N')
+
+        self.plugin_c = argparse.ArgumentParser()
+        self.plugin_c.add_argument('name', help='Cluster name')
+        self.plugin_c.add_argument('--id', help='Name of service/plugin')
+        self.plugin_c.add_argument('--msg', help='data msg')
+
+        self.plugin_c0 = argparse.ArgumentParser()
+        self.plugin_c0.add_argument('name', help='Cluster name')
+
+    #
+    # Login
+    #
+
+    def do_login(self, args):
+        """login - login in system"""
+
+        try:
+            args = self.login_p.parse_args(shlex.split(args))
+            name = args.name
+            passwd = getpass.getpass()
+
+            r = requests.post(_API_URL + "/auth",
+                              headers={"Content-type": "application/json"},
+                              data=json.dumps({"username": name, "password": passwd}))
+
+            if r.status_code == 401:
+                print("Bad login or passwd..")
+            elif r.status_code == 200:
+                self.token = json.loads(r.text)["access_token"]
+                self.prompt = "drop-core:{}:{}> ".format(HOST, name)
+                print("Logged..")
+            else:
+                print("Error occured..")
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.login_p.print_help()
+
+    #
+    # Freenode
+    #
+
+    def do_freenode_list(self, args):
+        """freenode_list - list of free nodes"""
+
+        try:
+            args = self.free_d.parse_args(shlex.split(args))
+            _fmt = args.fmt
+
+            r = requests.get(_API_URL + "/api/v1/freenode",
+                             headers={"Content-type": "application/json",
+                                      "Authorization": "JWT " + self.token
+                                      })
+
+            if r.status_code == 200:
+                if _fmt:
+                    fmt_json(r.text, _fmt)
+                else:
+                    print(r.text)
+            else:
+                raise Exception(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.free_d.print_help()
+
+    def do_freenode_clear(self, args):
+        """freenode_clear - delete list of free nodes"""
+        try:
+            r = requests.delete(_API_URL + "/api/v1/freenode",
+                                headers={"Content-type": "application/json",
+                                         "Authorization": "JWT " + self.token}
+                                )
+
+            print(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.login_p.print_help()
+
+    #
+    # Cluster
+    #
+
+    def do_cluster_list(self, args):
+        """cluster_list - list of avaliable clusters"""
+
+        try:
+            r = requests.get(_API_URL + "/api/v1/cluster",
+                             headers={"Content-type": "application/json",
+                                      "Authorization": "JWT " + self.token
+                                      })
+
+            if r.status_code == 200:
+                print(r.text)
+            else:
+                raise Exception(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.login_p.print_help()
+
+    def do_cluster_create(self, args):
+        """cluster_create - create cluster"""
+
+        try:
+            args = self.cluster_c.parse_args(shlex.split(args))
+            name = args.name
+            node_ids = args.node_ids
+            vip = args.vip
+
+            r = requests.post(_API_URL + "/api/v1/cluster",
+                              headers={"Content-type": "application/json",
+                                       "Authorization": "JWT " + self.token
+                                       },
+                              data=json.dumps({"name": name,
+                                               "node_ids": node_ids,
+                                               "vip": vip
+                                               })
+                              )
+            print(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.cluster_c.print_help()
+
+    def do_cluster_destroy(self, args):
+        """cluster_destroy - destroy cluster"""
+
+        try:
+            args = self.cluster_d.parse_args(shlex.split(args))
+            name = args.name
+
+            r = requests.delete(_API_URL + "/api/v1/cluster/" + name,
+                                headers={"Content-type": "application/json",
+                                         "Authorization": "JWT " + self.token
+                                         }
+                                )
+            print(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.cluster_d.print_help()
+
+    def do_cluster_start(self, args):
+        """cluster_start - start cluster"""
+
+        try:
+            args = self.cluster_d.parse_args(shlex.split(args))
+            name = args.name
+
+            self.do_service_start("{} --id drop-core".format(name))
+            print("wait to check..10s\n")
+            time.sleep(10)
+            self.do_service_status("{} --id drop-core".format(name))
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.cluster_d.print_help()
+
+    def do_cluster_stop(self, args):
+        """cluster_stop - stop cluster"""
+
+        try:
+            args = self.cluster_d.parse_args(shlex.split(args))
+            name = args.name
+
+            self.do_service_stop("{} --id drop-core".format(name))
+            print("wait to check..10s\n")
+            time.sleep(10)
+            self.do_service_status("{} --id drop-core".format(name))
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.cluster_d.print_help()
+
+    def do_cluster_node(self, args):
+        """cluster_node - start/stop/add/rm node cluster"""
+        try:
+
+            args = self.cluster_n.parse_args(shlex.split(args))
+            name = args.name
+            node_ids = args.node_names
+            op = args.op
+
+            r = requests.post(_API_URL + "/api/v1/cluster/{}/node",
+                              headers={"Content-type": "application/json",
+                                       "Authorization": "JWT " + self.token
+                                       },
+                              data=json.dumps({"name": name,
+                                               "node_ids": node_ids,
+                                               "op": op
+                                               })
+                              )
+            print(r.text)
+
+            print("wait to check..10s\n")
+            time.sleep(10)
+            self.do_service_status("{} --id drop-core".format(name))
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.cluster_n.print_help()
+
+    def do_cluster_info(self, args, verbose=1):
+        """cluster_info - info of cluster"""
+        try:
+
+            args = self.cluster_d.parse_args(shlex.split(args))
+            name = args.name
+            _fmt = args.fmt
+
+            r = requests.get(_API_URL + "/api/v1/cluster/{}/nodes".format(name),
+                             headers={"Content-type": "application/json",
+                                      "Authorization": "JWT " + self.token
+                                      }
+                             )
+
+            if r.status_code == 200:
+                if verbose == 1:
+                    if _fmt:
+                        fmt_json(r.text, _fmt)
+                    else:
+                        print(r.text)
+                self._nodes = json.loads(r.text)
+            else:
+                raise Exception(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.cluster_d.print_help()
+
+    def do_cluster_version(self, args):
+        """cluster_version - cluster version"""
+
+        try:
+            args = self.cluster_d.parse_args(shlex.split(args))
+            name = args.name
+
+            r = requests.get(_API_URL + "/api/v1/{}/version".format(name),
+                             headers={"Content-type": "application/json",
+                                      "Authorization": "JWT " + self.token
+                                      }
+                             )
+            print(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.cluster_d.print_help()
+
+    #
+    # Service
+    #
+
+    def do_service_conf(self, args):
+        """service_conf - configurate systemd services"""
+
+        try:
+            args = self.service_cnf.parse_args(shlex.split(args))
+            name = args.name
+            _id = args.id
+            _code = args.code
+
+            if _id is None:
+                raise Exception("Need name of service (--id)")
+            if _code is None:
+                raise Exception("Need shed code of service (--code)")
+
+            r = requests.patch(_API_URL + "/api/v1/{}/service/{}/{}".format(name, _id, _code),
+                               headers={"Content-type": "application/json",
+                                        "Authorization": "JWT " + self.token
+                                        }
+                               )
+            print(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.service_cnf.print_help()
+
+    def do_service_list(self, args):
+        """service_list - list of systemd services"""
+
+        try:
+            args = self.service_p.parse_args(shlex.split(args))
+            name = args.name
+
+            r = requests.get(_API_URL + "/api/v1/{}/service".format(name),
+                             headers={"Content-type": "application/json",
+                                      "Authorization": "JWT " + self.token
+                                      }
+                             )
+            print(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.service_p.print_help()
+
+    def do_service_start(self, args):
+        """service_start - start systemd services"""
+
+        try:
+            args = self.service_p.parse_args(shlex.split(args))
+            name = args.name
+            _id = args.id
+            if _id is None:
+                raise Exception("Need name of service (--id)")
+
+            r = requests.post(_API_URL + "/api/v1/{}/service/{}".format(name, _id),
+                              headers={"Content-type": "application/json",
+                                       "Authorization": "JWT " + self.token
+                                       }
+                              )
+            print(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.service_p.print_help()
+
+    def do_service_stop(self, args):
+        """service_stop - stop systemd services"""
+
+        try:
+            args = self.service_p.parse_args(shlex.split(args))
+            name = args.name
+            _id = args.id
+            if _id is None:
+                raise Exception("Need name of service (--id)")
+
+            r = requests.delete(_API_URL + "/api/v1/{}/service/{}".format(name, _id),
+                                headers={"Content-type": "application/json",
+                                         "Authorization": "JWT " + self.token
+                                         }
+                                )
+            print(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.service_p.print_help()
+
+    def do_service_status(self, args):
+        """service_status - status systemd services"""
+
+        try:
+            args = self.service_p.parse_args(shlex.split(args))
+            name = args.name
+            _id = args.id
+            if _id is None:
+                raise Exception("Need name of service (--id)")
+
+            r = requests.get(_API_URL + "/api/v1/{}/service/{}".format(name, _id),
+                             headers={"Content-type": "application/json",
+                                      "Authorization": "JWT " + self.token
+                                      }
+                             )
+            print(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.service_p.print_help()
+
+    #
+    # Plugin
+    #
+
+    def do_plugin_repo(self, args):
+        """plugin_repo - find plugin in repo"""
+
+        try:
+            r = requests.get(_API_URL + "/api/v1/repo",
+                             headers={"Content-type": "application/json",
+                                      "Authorization": "JWT " + self.token
+                                      })
+
+            if r.status_code == 200:
+                print(r.text)
+            else:
+                raise Exception(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.login_p.print_help()
+
+    def do_plugin_list(self, args):
+        """plugin_list - list of plugin"""
+
+        try:
+            args = self.service_p.parse_args(shlex.split(args))
+            name = args.name
+
+            r = requests.get(_API_URL + "/api/v1/{}/plugin".format(name),
+                             headers={"Content-type": "application/json",
+                                      "Authorization": "JWT " + self.token
+                                      }
+                             )
+            print(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.service_p.print_help()
+
+    def do_plugin_start(self, args):
+        """plugin_start - start plugin"""
+
+        try:
+            args = self.service_p.parse_args(shlex.split(args))
+            name = args.name
+            _id = args.id
+            if _id is None:
+                raise Exception("Need name of plugin (--id)")
+
+            r = requests.post(_API_URL + "/api/v1/{}/plugin/{}".format(name, _id),
+                              headers={"Content-type": "application/json",
+                                       "Authorization": "JWT " + self.token
+                                       }
+                              )
+            print(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.service_p.print_help()
+
+    def do_plugin_stop(self, args):
+        """plugin_stop - stop plugin"""
+
+        try:
+            args = self.service_p.parse_args(shlex.split(args))
+            name = args.name
+            _id = args.id
+            if _id is None:
+                raise Exception("Need name of plugin (--id)")
+
+            r = requests.delete(_API_URL + "/api/v1/{}/plugin/{}".format(name, _id),
+                                headers={"Content-type": "application/json",
+                                         "Authorization": "JWT " + self.token
+                                         }
+                                )
+            print(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.service_p.print_help()
+
+    def do_plugin_install(self, args):
+        """plugin_install - install plugin"""
+
+        try:
+            args = self.service_p.parse_args(shlex.split(args))
+            name = args.name
+            _id = args.id
+            if _id is None:
+                raise Exception("Need name of plugin (--id)")
+
+            r = requests.post(_API_URL + "/api/v1/{}/repo/plugin/{}".format(name, _id),
+                              headers={"Content-type": "application/json",
+                                       "Authorization": "JWT " + self.token
+                                       }
+                              )
+            print(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.service_p.print_help()
+
+    def do_plugin_remove(self, args):
+        """plugin_remove - remove plugin"""
+
+        try:
+            args = self.service_p.parse_args(shlex.split(args))
+            name = args.name
+            _id = args.id
+            if _id is None:
+                raise Exception("Need name of plugin (--id)")
+
+            r = requests.delete(_API_URL + "/api/v1/{}/repo/plugin/{}".format(name, _id),
+                                headers={"Content-type": "application/json",
+                                         "Authorization": "JWT " + self.token
+                                         }
+                                )
+            print(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.service_p.print_help()
+
+    def do_plugin_call(self, args):
+        """plugin_call - call msg plugin"""
+
+        try:
+            args = self.plugin_c.parse_args(shlex.split(args))
+            name = args.name
+            _id = args.id
+            msg = args.msg
+
+            if _id is None:
+                raise Exception("Need name of plugin (--id)")
+
+            r = requests.put(_API_URL + "/api/v1/{}/plugin/{}{}".format(name, _id, "?all=1"),
+                             headers={"Content-type": "application/json",
+                                      "Authorization": "JWT " + self.token
+                                      },
+                             data=msg
+                             )
+            print(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.plugin_c.print_help()
+
+    def do_plugin_info(self, args):
+        """plugin_info - info of plugin"""
+
+        try:
+            args = self.service_p.parse_args(shlex.split(args))
+            name = args.name
+            _id = args.id
+            if _id is None:
+                raise Exception("Need name of plugin (--id)")
+
+            r = requests.get(_API_URL + "/api/v1/{}/plugin/{}".format(name, _id),
+                             headers={"Content-type": "application/json",
+                                      "Authorization": "JWT " + self.token
+                                      }
+                             )
+            print(r.text)
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.service_p.print_help()
+
+    #
+    # Stats
+    #
+
+    def do_stats_cluster(self, args):
+        """stats_cluster - stats of nodes"""
+
+        try:
+            args = self.cluster_d.parse_args(shlex.split(args))
+            name = args.name
+
+            r = requests.get(_API_URL + "/api/v1/{}/stats/nodes".format(name),
+                             headers={"Content-type": "application/json",
+                                      "Authorization": "JWT " + self.token
+                                      }
+                             )
+            print(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.cluster_d.print_help()
+
+    def do_stats_plugin(self, args):
+        """stats_plugin - stats of plugins on node"""
+
+        try:
+            args = self.cluster_d.parse_args(shlex.split(args))
+            name = args.name
+
+            r = requests.get(_API_URL + "/api/v1/{}/stats/ppools".format(name),
+                             headers={"Content-type": "application/json",
+                                      "Authorization": "JWT " + self.token
+                                      }
+                             )
+            print(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.cluster_d.print_help()
+
+    #
+    # Gen call
+    #
+
+    def _do_call(self, args, sid, op, attr, answ=None, oattr=[], _all=1):
+
+        try:
+            args, unknown = self.plugin_c0.parse_known_args(shlex.split(args))
+            name = args.name
+            _id = sid
+            msg = {"op": op}
+            if oattr:
+                print("Optional attr: {}".format(oattr))
+
+            _tmp = dict(zip([x[2:] for x in unknown[::2]], unknown[1::2]))
+
+            for i in attr:
+                if _tmp.get(i) is None:
+                    raise Exception("Please specify (--{}) / {}".format(i, attr))
+                else:
+                    msg[i] = _tmp.get(i)
+
+            for i in oattr:
+                if _tmp.get(i) is not None:
+                    msg[i] = _tmp.get(i)
+
+            _url = _API_URL
+            if _all is None:
+                _sfx = ""
+
+                if msg.get("host") is None:
+                    raise Exception("Please specify (--host ?node_ip)")
+                else:
+                    _url = "http://{}:{}".format(msg.get("host"), PORT)
+
+            else:
+                _sfx = "?all=1"
+
+            r = requests.put(_url + "/api/v1/{}/plugin/{}{}".format(name, _id, _sfx),
+                             headers={"Content-type": "application/json",
+                                      "Authorization": "JWT " + self.token
+                                      },
+                             data=json.dumps(msg)
+                             )
+
+            if r.status_code == 200:
+                r = json.loads(r.text)
+                if r == {}:
+                    raise Exception("No nodes found in cluster {}".format(name))
+
+                for k, v in r.items():
+                    if not isinstance(v, dict):
+                        v = {"error": v}
+
+                    if answ is None:
+                        print("{} : {}".format(k, v.get("result", v.get("error"))))
+                    else:
+                        if v.get("result", None) == "ok":
+                            print("{} : {}".format(k, json.dumps(v.get(answ),
+                                                                 sort_keys=True,
+                                                                 indent=4)))
+                        else:
+                            print("{} : {}".format(k, v.get("error")))
+            else:
+                raise Exception(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.plugin_c0.print_help()
+
+    #
+    # Other
+    #
+
+    def default(self, line):
+        print "Not find command.."
+
+    def emptyline(self):
+        pass
+
+    def do_quit(self, args):
+        """exit from cli"""
+        return True
+
+
+def fmt_json(data, _fmt):
+    _f = _fmt.split(",")
+    _d = json.loads(data)
+    for i in _d:
+        _line = ""
+        for j in _f:
+            _line = " {} {} ".format(_line, i[j])
+        print _line
+
+
+if __name__ == "__main__":
+
+    import sys
+    if len(sys.argv) > 1:
+        HOST = sys.argv[1]
+        _API_URL = "http://{}:{}".format(HOST, PORT)
+
+    cli = Cli()
+    try:
+        cli.cmdloop()
+    except KeyboardInterrupt:
+        print "Session terminated..."
