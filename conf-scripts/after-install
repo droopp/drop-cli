@@ -1,5 +1,8 @@
 #!/bin/sh
 
+useradd drop-core
+chown -R drop-core:drop-core /opt/drop-cli
+
 ## create symlink
 rm -f /usr/bin/drop-cli
 ln -s /opt/drop-cli/drop-cli /usr/bin/drop-cli
