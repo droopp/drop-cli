@@ -301,10 +301,6 @@ class Cli(cmd.Cmd):
                               )
             print(r.text)
 
-            print("wait to check..10s\n")
-            time.sleep(10)
-            self.do_service_status("{} --id drop-core".format(name))
-
         except Exception as e:
             print("{}".format(e))
         except:
