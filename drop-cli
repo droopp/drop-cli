@@ -59,6 +59,15 @@ class Cli(cmd.Cmd):
             plugin_info - info of plugin
             plugin_call - call msg to plugin
 
+            fun_repo - find avaliable fun in repo
+            fun_install - install fun
+            fun_remove - remove fun
+            fun_list - list of fun
+            fun_start - start fun
+            fun_stop - stop fun
+            fun_info - info of fun
+            fun_call - call msg to fun
+
             stats_cluster - system stats of cluster nodes
             stats_plugin - system stats of groups on nodes
 
@@ -635,6 +644,188 @@ class Cli(cmd.Cmd):
                 raise Exception("Need name of plugin (--id)")
 
             r = requests.get(_API_URL + "/api/v1/{}/plugin/{}".format(name, _id),
+                             headers={"Content-type": "application/json",
+                                      "Authorization": "JWT " + self.token
+                                      }
+                             )
+            print(r.text)
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.service_p.print_help()
+
+    #
+    # Funcs
+    #
+
+    def do_fun_repo(self, args):
+        """fun_repo - find fun in repo"""
+
+        try:
+            r = requests.get(_API_URL + "/api/v1/f_repo",
+                             headers={"Content-type": "application/json",
+                                      "Authorization": "JWT " + self.token
+                                      })
+
+            if r.status_code == 200:
+                print(r.text)
+            else:
+                raise Exception(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.login_p.print_help()
+
+    def do_fun_list(self, args):
+        """fun_list - list funcs"""
+
+        try:
+            args = self.service_p.parse_args(shlex.split(args))
+            name = args.name
+
+            r = requests.get(_API_URL + "/api/v1/{}/fun".format(name),
+                             headers={"Content-type": "application/json",
+                                      "Authorization": "JWT " + self.token
+                                      }
+                             )
+            print(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.service_p.print_help()
+
+    def do_fun_start(self, args):
+        """fun_start - start fun"""
+
+        try:
+            args = self.service_p.parse_args(shlex.split(args))
+            name = args.name
+            _id = args.id
+            if _id is None:
+                raise Exception("Need name of fun (--id)")
+
+            r = requests.post(_API_URL + "/api/v1/{}/fun/{}".format(name, _id),
+                              headers={"Content-type": "application/json",
+                                       "Authorization": "JWT " + self.token
+                                       }
+                              )
+            print(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.service_p.print_help()
+
+    def do_fun_stop(self, args):
+        """fun_stop - stop fun"""
+
+        try:
+            args = self.service_p.parse_args(shlex.split(args))
+            name = args.name
+            _id = args.id
+            if _id is None:
+                raise Exception("Need name of fun (--id)")
+
+            r = requests.delete(_API_URL + "/api/v1/{}/fun/{}".format(name, _id),
+                                headers={"Content-type": "application/json",
+                                         "Authorization": "JWT " + self.token
+                                         }
+                                )
+            print(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.service_p.print_help()
+
+    def do_fun_install(self, args):
+        """fun_install - install fun"""
+
+        try:
+            args = self.service_p.parse_args(shlex.split(args))
+            name = args.name
+            _id = args.id
+            _ver = args.ver
+            if _id is None:
+                raise Exception("Need name of fun (--id)")
+            if _ver is None:
+                raise Exception("Need ver of fun (--ver)")
+
+            r = requests.post(_API_URL + "/api/v1/{}/repo/plugin/{}/{}".format(name, _id, _ver),
+                              headers={"Content-type": "application/json",
+                                       "Authorization": "JWT " + self.token
+                                       }
+                              )
+            print(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.service_p.print_help()
+
+    def do_fun_remove(self, args):
+        """fun_remove - remove fun"""
+
+        try:
+            args = self.service_p.parse_args(shlex.split(args))
+            name = args.name
+            _id = args.id
+            _ver = args.ver
+            if _id is None:
+                raise Exception("Need name of plugin (--id)")
+            if _ver is None:
+                raise Exception("Need ver of fun (--ver)")
+
+            r = requests.delete(_API_URL + "/api/v1/{}/repo/plugin/{}/{}".format(name, _id, _ver),
+                                headers={"Content-type": "application/json",
+                                         "Authorization": "JWT " + self.token
+                                         }
+                                )
+            print(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.service_p.print_help()
+
+    def do_fun_call(self, args):
+        """fun_call - call msg fun"""
+
+        try:
+            args = self.plugin_c.parse_args(shlex.split(args))
+            name = args.name
+            _id = args.id
+            msg = args.msg
+
+            if _id is None:
+                raise Exception("Need name of fun (--id)")
+
+            r = requests.put(_API_URL + "/api/v1/{}/fun/{}{}".format(name, _id, "?all=0"),
+                             headers={"Content-type": "application/json",
+                                      "Authorization": "JWT " + self.token
+                                      },
+                             data=msg
+                             )
+            print(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.plugin_c.print_help()
+
+    def do_fun_info(self, args):
+        """fun_info - info of fun"""
+
+        try:
+            args = self.service_p.parse_args(shlex.split(args))
+            name = args.name
+            _id = args.id
+            if _id is None:
+                raise Exception("Need name of fun (--id)")
+
+            r = requests.get(_API_URL + "/api/v1/{}/fun/{}".format(name, _id),
                              headers={"Content-type": "application/json",
                                       "Authorization": "JWT " + self.token
                                       }
