@@ -63,10 +63,14 @@ class Cli(cmd.Cmd):
             fun_install - install fun
             fun_remove - remove fun
             fun_list - list of fun
-            fun_start - start fun
-            fun_stop - stop fun
-            fun_info - info of fun
-            fun_call - call msg to fun
+ 
+            flow_install - install flow
+            flow_remove - remove flow
+            flow_list - list of flow
+            flow_start - start flow
+            flow_stop - stop flow
+            flow_info - info of flow
+            flow_call - call msg to flow
 
             stats_cluster - system stats of cluster nodes
             stats_plugin - system stats of groups on nodes
@@ -101,6 +105,11 @@ class Cli(cmd.Cmd):
         self.service_p = argparse.ArgumentParser()
         self.service_p.add_argument('name', help='Cluster name')
         self.service_p.add_argument('--id', help='Name of service/plugin')
+
+        self.service_f = argparse.ArgumentParser()
+        self.service_f.add_argument('name', help='Cluster name')
+        self.service_f.add_argument('--id', help='Name of fun')
+        self.service_f.add_argument('--ver', help='Version of fun')
 
         self.service_cnf = argparse.ArgumentParser()
         self.service_cnf.add_argument('name', help='Cluster name')
@@ -696,17 +705,45 @@ class Cli(cmd.Cmd):
         except:
             self.service_p.print_help()
 
-    def do_fun_start(self, args):
-        """fun_start - start fun"""
+    def do_flow_install(self, args):
+        """flow_install - install flow"""
 
         try:
             args = self.service_p.parse_args(shlex.split(args))
             name = args.name
             _id = args.id
             if _id is None:
-                raise Exception("Need name of fun (--id)")
+                raise Exception("Need name of flow (--id)")
 
-            r = requests.post(_API_URL + "/api/v1/{}/fun/{}".format(name, _id),
+            with open (_id + ".json") as f:
+                data = f.read()
+
+                r = requests.post(_API_URL + "/api/v1/{}/flows/{}".format(name, _id),
+                                  headers={"Content-type": "application/json",
+                                           "Authorization": "JWT " + self.token
+                                           },
+                                  data=data
+                                  )
+
+            print(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.service_p.print_help()
+
+
+    def do_flow_start(self, args):
+        """flow_start - start flow"""
+
+        try:
+            args = self.service_p.parse_args(shlex.split(args))
+            name = args.name
+            _id = args.id
+            if _id is None:
+                raise Exception("Need name of flow (--id)")
+
+            r = requests.post(_API_URL + "/api/v1/{}/flow/{}".format(name, _id),
                               headers={"Content-type": "application/json",
                                        "Authorization": "JWT " + self.token
                                        }
@@ -718,17 +755,42 @@ class Cli(cmd.Cmd):
         except:
             self.service_p.print_help()
 
-    def do_fun_stop(self, args):
-        """fun_stop - stop fun"""
+
+    def do_flow_remove(self, args):
+        """flow_remove - remove flow"""
 
         try:
             args = self.service_p.parse_args(shlex.split(args))
             name = args.name
             _id = args.id
             if _id is None:
-                raise Exception("Need name of fun (--id)")
+                raise Exception("Need name of flow (--id)")
 
-            r = requests.delete(_API_URL + "/api/v1/{}/fun/{}".format(name, _id),
+            r = requests.delete(_API_URL + "/api/v1/{}/flows/{}".format(name, _id),
+                                headers={"Content-type": "application/json",
+                                         "Authorization": "JWT " + self.token
+                                         }
+                                )
+            print(r.text)
+
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.service_p.print_help()
+
+
+
+    def do_flow_stop(self, args):
+        """flow_stop - stop flow"""
+
+        try:
+            args = self.service_p.parse_args(shlex.split(args))
+            name = args.name
+            _id = args.id
+            if _id is None:
+                raise Exception("Need name of flow (--id)")
+
+            r = requests.delete(_API_URL + "/api/v1/{}/flow/{}".format(name, _id),
                                 headers={"Content-type": "application/json",
                                          "Authorization": "JWT " + self.token
                                          }
@@ -744,7 +806,7 @@ class Cli(cmd.Cmd):
         """fun_install - install fun"""
 
         try:
-            args = self.service_p.parse_args(shlex.split(args))
+            args = self.service_f.parse_args(shlex.split(args))
             name = args.name
             _id = args.id
             _ver = args.ver
@@ -753,7 +815,7 @@ class Cli(cmd.Cmd):
             if _ver is None:
                 raise Exception("Need ver of fun (--ver)")
 
-            r = requests.post(_API_URL + "/api/v1/{}/repo/plugin/{}/{}".format(name, _id, _ver),
+            r = requests.post(_API_URL + "/api/v1/{}/repo/fun/{}/{}".format(name, _id, _ver),
                               headers={"Content-type": "application/json",
                                        "Authorization": "JWT " + self.token
                                        }
@@ -763,13 +825,13 @@ class Cli(cmd.Cmd):
         except Exception as e:
             print("{}".format(e))
         except:
-            self.service_p.print_help()
+            self.service_f.print_help()
 
     def do_fun_remove(self, args):
         """fun_remove - remove fun"""
 
         try:
-            args = self.service_p.parse_args(shlex.split(args))
+            args = self.service_f.parse_args(shlex.split(args))
             name = args.name
             _id = args.id
             _ver = args.ver
@@ -778,7 +840,7 @@ class Cli(cmd.Cmd):
             if _ver is None:
                 raise Exception("Need ver of fun (--ver)")
 
-            r = requests.delete(_API_URL + "/api/v1/{}/repo/plugin/{}/{}".format(name, _id, _ver),
+            r = requests.delete(_API_URL + "/api/v1/{}/repo/fun/{}/{}".format(name, _id, _ver),
                                 headers={"Content-type": "application/json",
                                          "Authorization": "JWT " + self.token
                                          }
@@ -788,10 +850,10 @@ class Cli(cmd.Cmd):
         except Exception as e:
             print("{}".format(e))
         except:
-            self.service_p.print_help()
+            self.service_f.print_help()
 
-    def do_fun_call(self, args):
-        """fun_call - call msg fun"""
+    def do_flow_call(self, args):
+        """flow_call - call msg flow"""
 
         try:
             args = self.plugin_c.parse_args(shlex.split(args))
@@ -800,9 +862,9 @@ class Cli(cmd.Cmd):
             msg = args.msg
 
             if _id is None:
-                raise Exception("Need name of fun (--id)")
+                raise Exception("Need name of flow (--id)")
 
-            r = requests.put(_API_URL + "/api/v1/{}/fun/{}{}".format(name, _id, "?all=0"),
+            r = requests.put(_API_URL + "/api/v1/{}/flow/{}{}".format(name, _id, "?all=0"),
                              headers={"Content-type": "application/json",
                                       "Authorization": "JWT " + self.token
                                       },
@@ -815,17 +877,17 @@ class Cli(cmd.Cmd):
         except:
             self.plugin_c.print_help()
 
-    def do_fun_info(self, args):
-        """fun_info - info of fun"""
+    def do_flow_info(self, args):
+        """flow_info - info of flow"""
 
         try:
             args = self.service_p.parse_args(shlex.split(args))
             name = args.name
             _id = args.id
             if _id is None:
-                raise Exception("Need name of fun (--id)")
+                raise Exception("Need name of flow (--id)")
 
-            r = requests.get(_API_URL + "/api/v1/{}/fun/{}".format(name, _id),
+            r = requests.get(_API_URL + "/api/v1/{}/flow/{}".format(name, _id),
                              headers={"Content-type": "application/json",
                                       "Authorization": "JWT " + self.token
                                       }
@@ -835,6 +897,27 @@ class Cli(cmd.Cmd):
             print("{}".format(e))
         except:
             self.service_p.print_help()
+
+
+    def do_flow_list(self, args):
+        """flow_list - list of flow"""
+
+        try:
+            args = self.service_p.parse_args(shlex.split(args))
+            name = args.name
+
+            r = requests.get(_API_URL + "/api/v1/flows",
+                             headers={"Content-type": "application/json",
+                                      "Authorization": "JWT " + self.token
+                                      }
+                             )
+            print(r.text)
+        except Exception as e:
+            print("{}".format(e))
+        except:
+            self.service_p.print_help()
+
+
 
     #
     # Stats
