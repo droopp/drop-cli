@@ -899,9 +899,9 @@ class Cli(cmd.Cmd):
 
         try:
             args = self.service_p.parse_args(shlex.split(args))
-            # name = args.name
+            name = args.name
 
-            r = requests.get(_API_URL + "/api/v1/flows",
+            r = requests.get(_API_URL + "/api/v1/{}/flows".format(name),
                              headers={"Content-type": "application/json",
                                       "Authorization": "JWT " + self.token
                                       }
