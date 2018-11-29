@@ -63,7 +63,7 @@ class Cli(cmd.Cmd):
             fun_install - install fun
             fun_remove - remove fun
             fun_list - list of fun
- 
+
             flow_install - install flow
             flow_remove - remove flow
             flow_list - list of flow
@@ -715,7 +715,7 @@ class Cli(cmd.Cmd):
             if _id is None:
                 raise Exception("Need name of flow (--id)")
 
-            with open (_id + ".json") as f:
+            with open(_id + ".json") as f:
                 data = f.read()
 
                 r = requests.post(_API_URL + "/api/v1/{}/flows/{}".format(name, _id),
@@ -731,7 +731,6 @@ class Cli(cmd.Cmd):
             print("{}".format(e))
         except:
             self.service_p.print_help()
-
 
     def do_flow_start(self, args):
         """flow_start - start flow"""
@@ -755,7 +754,6 @@ class Cli(cmd.Cmd):
         except:
             self.service_p.print_help()
 
-
     def do_flow_remove(self, args):
         """flow_remove - remove flow"""
 
@@ -777,8 +775,6 @@ class Cli(cmd.Cmd):
             print("{}".format(e))
         except:
             self.service_p.print_help()
-
-
 
     def do_flow_stop(self, args):
         """flow_stop - stop flow"""
@@ -898,13 +894,12 @@ class Cli(cmd.Cmd):
         except:
             self.service_p.print_help()
 
-
     def do_flow_list(self, args):
         """flow_list - list of flow"""
 
         try:
             args = self.service_p.parse_args(shlex.split(args))
-            name = args.name
+            # name = args.name
 
             r = requests.get(_API_URL + "/api/v1/flows",
                              headers={"Content-type": "application/json",
@@ -916,8 +911,6 @@ class Cli(cmd.Cmd):
             print("{}".format(e))
         except:
             self.service_p.print_help()
-
-
 
     #
     # Stats
