@@ -860,7 +860,7 @@ class Cli(cmd.Cmd):
             if _id is None:
                 raise Exception("Need name of flow (--id)")
 
-            r = requests.put(_API_URL + "/api/v1/{}/flow/{}{}".format(name, _id, "?all=0"),
+            r = requests.put(_API_URL + "/api/v1/{}/flow/{}".format(name, _id),
                              headers={"Content-type": "application/json",
                                       "Authorization": "JWT " + self.token
                                       },
