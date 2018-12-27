@@ -715,10 +715,10 @@ class Cli(cmd.Cmd):
             if _id is None:
                 raise Exception("Need name of flow (--id)")
 
-            with open(_id + ".json") as f:
+            with open(_id + ".yaml") as f:
                 data = f.read()
 
-                r = requests.post(_API_URL + "/api/v1/{}/flows/{}".format(name, _id),
+                r = requests.post(_API_URL + "/api/v1/{}/flows/{}".format(name, _id.split("/")[-1]),
                                   headers={"Content-type": "application/json",
                                            "Authorization": "JWT " + self.token
                                            },
