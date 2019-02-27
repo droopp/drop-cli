@@ -709,22 +709,30 @@ class Cli(cmd.Cmd):
         """flow_install - install flow"""
 
         try:
+
             args = self.service_p.parse_args(shlex.split(args))
             name = args.name
             _id = args.id
             if _id is None:
                 raise Exception("Need name of flow (--id)")
 
-            with open(_id + ".yaml") as f:
-                data = f.read()
+            if _id.startswith("http"):
+                _r = requests.get(_id)
+                if _r.status_code != 200:
+                    raise Exception(_r.text)
 
-                r = requests.post(_API_URL + "/api/v1/{}/flows/{}".format(name, _id.split("/")[-1]),
-                                  headers={"Content-type": "application/json",
-                                           "Authorization": "JWT " + self.token
-                                           },
-                                  data=data
-                                  )
+                data = _r.text
+            else:
+                data = open(_id).read()
 
+            _id = _id[:-5]
+
+            r = requests.post(_API_URL + "/api/v1/{}/flows/{}".format(name, _id.split("/")[-1]),
+                              headers={"Content-type": "application/json",
+                                       "Authorization": "JWT " + self.token
+                                       },
+                              data=data
+                              )
             print(r.text)
 
         except Exception as e:
