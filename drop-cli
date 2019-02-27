@@ -110,6 +110,7 @@ class Cli(cmd.Cmd):
         self.service_f.add_argument('name', help='Cluster name')
         self.service_f.add_argument('--id', help='Name of fun')
         self.service_f.add_argument('--ver', help='Version of fun')
+        self.service_f.add_argument('--space', help='Space of fun')
 
         self.service_cnf = argparse.ArgumentParser()
         self.service_cnf.add_argument('name', help='Cluster name')
@@ -814,12 +815,16 @@ class Cli(cmd.Cmd):
             name = args.name
             _id = args.id
             _ver = args.ver
+            _space = args.space
+
             if _id is None:
                 raise Exception("Need name of fun (--id)")
             if _ver is None:
                 raise Exception("Need ver of fun (--ver)")
+            if _space is None:
+                raise Exception("Space of fun (--space)")
 
-            r = requests.post(_API_URL + "/api/v1/{}/repo/fun/{}/{}".format(name, _id, _ver),
+            r = requests.post(_API_URL + "/api/v1/{}/repo/fun/{}/{}?space={}".format(name, _id, _ver, _space),
                               headers={"Content-type": "application/json",
                                        "Authorization": "JWT " + self.token
                                        }
@@ -839,12 +844,16 @@ class Cli(cmd.Cmd):
             name = args.name
             _id = args.id
             _ver = args.ver
+            _space = args.space
+
             if _id is None:
-                raise Exception("Need name of plugin (--id)")
+                raise Exception("Need name of fun (--id)")
             if _ver is None:
                 raise Exception("Need ver of fun (--ver)")
+            if _space is None:
+                raise Exception("Space of fun (--space)")
 
-            r = requests.delete(_API_URL + "/api/v1/{}/repo/fun/{}/{}".format(name, _id, _ver),
+            r = requests.delete(_API_URL + "/api/v1/{}/repo/fun/{}/{}?space={}".format(name, _id, _ver, _space),
                                 headers={"Content-type": "application/json",
                                          "Authorization": "JWT " + self.token
                                          }
